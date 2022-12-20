@@ -1,0 +1,133 @@
+data set link :- "https://drive.google.com/drive/folders/1OZFN1K99b0fGYymjBCU7He3vr5eAp8yW"
+
+!git clone https://github.com/ultralytics/yolov5  # clone
+%cd yolov5
+%pip install -qr requirements.txt  # install
+
+import torch
+import utils
+display = utils.notebook_init()  # checks
+
+
+import numpy as np # linear algebra
+import pandas as pd # data processing, CSV file I/O (e.g. pd.read_csv)
+import glob
+from tqdm import tqdm
+import os
+import cv2
+import matplotlib.pyplot as plt
+
+data_dir="/content/drive/MyDrive/new_train/images"
+td_dir="/content/drive/MyDrive/new_train/images/train"
+val_ds="/content/drive/MyDrive/new_train/images/val"
+train_dir = os.path.join(data_dir, "train")
+test_dir = os.path.join(data_dir, "val")
+
+all_train_subdir=glob.glob(train_dir+"/*")
+all_test_subdir=glob.glob(test_dir+"/*")
+
+
+train_image_counts={os.path.basename(pp):[len(glob.glob(os.path.join(pp, "*.jpg")))] for pp in all_train_subdir}
+test_image_counts={os.path.basename(pp):[len(glob.glob(os.path.join(pp, "*.jpg")))] for pp in all_test_subdir}
+# all_image_counts=train_image_counts.copy()
+# all_image_counts={k:all_image_counts[k]+test_image_counts[k] for k in all_image_counts.keys()}
+train_data_df = pd.DataFrame(train_image_counts, index=["train"]).transpose()
+test_data_df = pd.DataFrame(test_image_counts, index=["val"]).transpose()
+all_data_df=train_data_df.copy()
+all_data_df["test"]=test_data_df
+all_data_df.head()
+
+from IPython.display import Image
+
+
+import os
+from random import choice
+import shutil
+
+#arrays to store file names
+imgs =[]
+xmls =[]
+
+#setup dir names
+trainPath = '/content/drive/MyDrive/new_train/images/train'
+valPath = '/content/drive/MyDrive/new_train/images/val'
+crsPath = '/content/drive/MyDrive/new_train/ts' #dir where images and annotations stored
+
+#setup ratio (val ratio = rest of the files in origin dir after splitting into train and test)
+train_ratio = 0.8
+val_ratio = 0.2
+
+
+#total count of imgs
+totalImgCount = len(os.listdir(crsPath))/2
+
+#storing files to corresponding arrays
+for (dirname, dirs, files) in os.walk(crsPath):
+    for filename in files:
+        if filename.endswith('.txt'):
+            xmls.append(filename)
+        else:
+            imgs.append(filename)
+
+
+#counting range for cycles
+countForTrain = int(len(imgs)*train_ratio)
+countForVal = int(len(imgs)*val_ratio)
+print("training images are : ",countForTrain)
+print("Validation images are : ",countForVal)
+
+
+
+trainimagePath = '/content/drive/MyDrive/new_train/images/train'
+trainlabelPath = '/content/drive/MyDrive/new_train/labels/train'
+valimagePath = '/content/drive/MyDrive/new_train/images/val'
+vallabelPath = '/content/drive/MyDrive/new_train/labels/val'
+#cycle for train dir
+for x in range(countForTrain):
+
+    fileJpg = choice(imgs) # get name of random image from origin dir
+    fileXml = fileJpg[:-4] +'.txt' # get name of corresponding annotation file
+
+    #move both files into train dir
+    shutil.copy(os.path.join(crsPath, fileJpg), os.path.join(trainimagePath, fileJpg))
+    shutil.copy(os.path.join(crsPath, fileXml), os.path.join(trainlabelPath, fileXml))
+
+
+    #remove files from arrays
+    imgs.remove(fileJpg)
+    xmls.remove(fileXml)
+
+
+
+#cycle for test dir   
+for x in range(countForVal):
+
+    fileJpg = choice(imgs) # get name of random image from origin dir
+    fileXml = fileJpg[:-4] +'.txt' # get name of corresponding annotation file
+
+    #move both files into train dir
+    shutil.copy(os.path.join(crsPath, fileJpg), os.path.join(valimagePath, fileJpg))
+    shutil.copy(os.path.join(crsPath, fileXml), os.path.join(vallabelPath, fileXml))
+    
+    #remove files from arrays
+    imgs.remove(fileJpg)
+    xmls.remove(fileXml)
+
+#rest of files will be validation files, so rename origin dir to val dir
+#os.rename(crsPath, valPath)
+shutil.move(crsPath, valPath)
+
+
+!python train.py --img 415 --batch 16 --epochs 60 --data custom_data1.yaml --weights yolov5s.pt --cache     #(cusom_data1.yaml will be provided in separate)
+
+
+%load_ext tensorboard
+%tensorboard --logdir runs
+
+
+
+!python detect.py --weights runs/train/exp/weights/last.pt --img 640 --conf 0.25 --source ../bearsdark.png            #(bearsdark.png in image source)
+
+
+
+!python detect.py --weights runs/train/exp/weights/last.pt --img 640 --conf 0.25 --source ../fff.mp4         #(fff.mp4 in video source)
